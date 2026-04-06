@@ -1,0 +1,17 @@
+.{
+    .fingerprint = 0xefef881502b66c75,
+    .name = .zfork,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.13.0",
+    .dependencies = .{
+        .zconnector = .{
+            .path = "../zconnector",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}

@@ -57,7 +57,7 @@ pub fn main(init: std.process.Init) !void {
         const id = try std.fmt.parseUnsigned(u64, args.items[2], 10);
         const agent = try manager.getAgent(id);
         switch (agent.kind) {
-            .local => try local_agent.attach(io, allocator, environ, agent),
+            .local => try local_agent.attach(io, allocator, agent),
             .remote => try remote_agent.attach(io, agent),
         }
         return;
@@ -65,7 +65,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (std.mem.eql(u8, cmd, "complete")) {
         const parsed = try parseCompleteArgs(args.items[2..]);
-        const completer = completer_mod.Completer.init(allocator, io, environ);
+        const completer = completer_mod.Completer.init(allocator, io);
         const agent = if (parsed.model == null or parsed.prompt == null)
             manager.defaultCompletionAgent()
         else

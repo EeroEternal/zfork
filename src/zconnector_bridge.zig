@@ -1,4 +1,5 @@
 const std = @import("std");
+const zc = @import("zconnector");
 
 pub const Request = struct {
     model: []const u8,
@@ -6,67 +7,36 @@ pub const Request = struct {
     user_input: []const u8,
 };
 
-pub fn complete(allocator: std.mem.Allocator, io: std.Io, environ: std.process.Environ, request: Request) ![]u8 {
-    const command = std.process.Environ.getAlloc(environ, allocator, "ZFORK_ZCONNECTOR_CMD") catch |err| switch (err) {
-        error.EnvironmentVariableMissing => try allocator.dupe(u8, "zconnector"),
+pub fn complete(allocator: std.mem.Allocator, io: std.Io, request: Request) ![]u8 {
+    // 优先从环境变量读取 API Key，否则报错
+    const api_key = std.process.getEnvVarOwned(allocator, "OPENAI_API_KEY") catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => return error.MissingApiKey,
         else => return err,
     };
-    defer allocator.free(command);
+    defer allocator.free(api_key);
 
-    const prompt = try std.fmt.allocPrint(
-        allocator,
-        "model={s}\nsystem={s}\ninput={s}\n",
-        .{ request.model, request.system_prompt, request.user_input },
-    );
-    defer allocator.free(prompt);
+    // 优先从环境变量读取自定义 Base URL，否则默认 OpenAI
+    const base_url = std.process.getEnvVarOwned(allocator, "OPENAI_BASE_URL") catch |err| switch (err) {
+        error.EnvironmentVariableNotFound => try allocator.dupe(u8, "https://api.openai.com"),
+        else => return err,
+    };
+    defer allocator.free(base_url);
 
-    const argv = [_][]const u8{command};
-    var child = try std.process.spawn(io, .{
-        .argv = argv[0..],
-        .stdin = .pipe,
-        .stdout = .pipe,
-        .stderr = .pipe,
-    });
+    var client = try zc.LlmClient.openai(allocator, api_key, base_url, io);
+    defer client.deinit();
 
-    if (child.stdin) |stdin| {
-        try stdin.writeStreamingAll(io, prompt);
-        stdin.close(io);
-    }
-
-    const stdout = if (child.stdout) |stdout| blk: {
-        var reader = stdout.reader(io, &.{});
-        break :blk reader.interface.allocRemaining(allocator, .limited(1024 * 1024)) catch |err| switch (err) {
-            error.ReadFailed => return reader.err.?,
-            else => return err,
-        };
-    } else try allocator.dupe(u8, "");
-    errdefer allocator.free(stdout);
-
-    const stderr = if (child.stderr) |stderr| blk: {
-        var reader = stderr.reader(io, &.{});
-        break :blk reader.interface.allocRemaining(allocator, .limited(64 * 1024)) catch |err| switch (err) {
-            error.ReadFailed => return reader.err.?,
-            else => return err,
-        };
-    } else try allocator.dupe(u8, "");
-    defer allocator.free(stderr);
-
-    const term = try child.wait(io);
-    switch (term) {
-        .exited => |code| {
-            if (code != 0) {
-                std.debug.print("zconnector failed: {s}\n", .{stderr});
-                return error.ZconnectorFailed;
-            }
+    const response = try client.chat(.{
+        .model = request.model,
+        .messages = &.{
+            .{ .role = .system, .content = request.system_prompt },
+            .{ .role = .user, .content = request.user_input },
         },
-        else => return error.ZconnectorFailed,
+    }, .{ .io = io });
+    defer response.deinit();
+
+    if (response.content) |content| {
+        return allocator.dupe(u8, content);
+    } else {
+        return error.EmptyCompletion;
     }
-
-    const trimmed = std.mem.trim(u8, stdout, " \r\n");
-    if (trimmed.len == 0) return error.EmptyCompletion;
-    if (trimmed.ptr == stdout.ptr and trimmed.len == stdout.len) return stdout;
-
-    const result = try allocator.dupe(u8, trimmed);
-    allocator.free(stdout);
-    return result;
 }

@@ -5,10 +5,9 @@ const zconnector_bridge = @import("zconnector_bridge.zig");
 pub const Completer = struct {
     allocator: std.mem.Allocator,
     io: std.Io,
-    environ: std.process.Environ,
 
-    pub fn init(allocator: std.mem.Allocator, io: std.Io, environ: std.process.Environ) Completer {
-        return .{ .allocator = allocator, .io = io, .environ = environ };
+    pub fn init(allocator: std.mem.Allocator, io: std.Io) Completer {
+        return .{ .allocator = allocator, .io = io };
     }
 
     pub fn complete(self: *const Completer, agent: ?*const types.Agent, options: types.CompletionOptions) ![]u8 {
@@ -30,7 +29,7 @@ pub const Completer = struct {
         const completion_prompt = try buildCompletionPrompt(self.allocator, normalized);
         defer self.allocator.free(completion_prompt);
 
-        return try zconnector_bridge.complete(self.allocator, self.io, self.environ, .{
+        return try zconnector_bridge.complete(self.allocator, self.io, .{
             .model = model,
             .system_prompt = prompt,
             .user_input = completion_prompt,

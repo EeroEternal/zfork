@@ -48,6 +48,9 @@ pub const Agent = struct {
     host: ?[]u8,
     kind: AgentKind,
     status: AgentStatus,
+    pid: ?u32 = null,
+    log_path: ?[]u8 = null,
+    socket_path: ?[]u8 = null,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -57,6 +60,9 @@ pub const Agent = struct {
         prompt: []const u8,
         host: ?[]const u8,
         status: AgentStatus,
+        pid: ?u32,
+        log_path: ?[]const u8,
+        socket_path: ?[]const u8,
     ) !Agent {
         return .{
             .id = id,
@@ -66,6 +72,9 @@ pub const Agent = struct {
             .host = if (host) |value| try allocator.dupe(u8, value) else null,
             .kind = AgentKind.fromHost(host),
             .status = status,
+            .pid = pid,
+            .log_path = if (log_path) |value| try allocator.dupe(u8, value) else null,
+            .socket_path = if (socket_path) |value| try allocator.dupe(u8, value) else null,
         };
     }
 
@@ -74,6 +83,8 @@ pub const Agent = struct {
         allocator.free(self.model);
         allocator.free(self.prompt);
         if (self.host) |host| allocator.free(host);
+        if (self.log_path) |path| allocator.free(path);
+        if (self.socket_path) |path| allocator.free(path);
     }
 };
 

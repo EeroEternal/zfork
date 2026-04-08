@@ -9,12 +9,18 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const ghostty_dep = b.dependency("ghostty", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const root_module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
     root_module.addImport("zconnector", zconnector_dep.module("zconnector"));
+    root_module.addImport("ghostty", ghostty_dep.module("ghostty-vt"));
 
     const exe = b.addExecutable(.{
         .name = "zfork",

@@ -1,11 +1,15 @@
 .{
     .fingerprint = 0xefef881502b66c75,
     .name = .zfork,
-    .version = "0.1.0",
-    .minimum_zig_version = "0.13.0",
+    .version = "0.1.1",
+    .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .zconnector = .{
-            .path = "../zconnector",
+            .url = "git+https://github.com/EeroEternal/zconnector?ref=v0.3.2#2b3fb168979c1e1ac478996af94214e238ed456c",
+            .hash = "zconnector-0.3.2-5GZw2TlNAQDLF0y-RNiNvUyo1Tzc248FvzfufWkxG-nj",
+        },
+        .ghostty = .{
+            .path = "../ghostty",
         },
     },
     .paths = .{

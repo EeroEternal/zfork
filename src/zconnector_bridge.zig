@@ -25,18 +25,15 @@ pub fn complete(allocator: std.mem.Allocator, io: std.Io, request: Request) ![]u
     var client = try zc.LlmClient.openai(allocator, api_key, base_url, io);
     defer client.deinit();
 
-    const response = try client.chat(.{
-        .model = request.model,
-        .messages = &.{
-            .{ .role = .system, .content = request.system_prompt },
-            .{ .role = .user, .content = request.user_input },
-        },
-    }, .{ .io = io });
+    var chat_request = try zc.ChatRequest.fromTextMessages(allocator, request.model, &.{
+        .{ .role = .system, .content = request.system_prompt },
+        .{ .role = .user, .content = request.user_input },
+    });
+    defer chat_request.deinit();
+
+    var response = try client.chat(&chat_request, .{ .io = io });
     defer response.deinit();
 
-    if (response.content) |content| {
-        return allocator.dupe(u8, content);
-    } else {
-        return error.EmptyCompletion;
-    }
+    if (response.content.len == 0) return error.EmptyCompletion;
+    return allocator.dupe(u8, response.content);
 }
